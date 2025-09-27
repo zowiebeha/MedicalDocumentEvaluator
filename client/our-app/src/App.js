@@ -85,15 +85,16 @@ const Textarea = ({ value, onChange, placeholder, style, ...props }) => (
       width: '100%',
       maxWidth: '100%',
       minHeight: '150px',
-      padding: '24px',
+      padding: '20px',
       borderRadius: '12px',
       border: '1px solid #4B5563',
       backgroundColor: '#374151',
       color: 'white',
-      boxSizing: 'border-box',
-      fontSize: '18px',
+      fontSize: '16px',
       resize: 'none',
       outline: 'none',
+      boxSizing: 'border-box',
+      fontFamily: 'inherit',
       ...style
     }}
     onFocus={(e) => {
@@ -146,44 +147,229 @@ const Switch = ({ id, checked, onCheckedChange }) => (
 
 // Evidence Pyramid Component
 const EvidencePyramid = ({ onLevelClick }) => {
-  const levels = [
-    { name: 'Systematic Reviews', color: '#10B981', description: 'Meta-analyses of RCTs' },
-    { name: 'Randomized Trials', color: '#3B82F6', description: 'Individual RCTs' },
-    { name: 'Cohort Studies', color: '#8B5CF6', description: 'Observational studies' },
-    { name: 'Case Reports', color: '#F59E0B', description: 'Individual cases' },
-    { name: 'Expert Opinion', color: '#EF4444', description: 'Professional judgment' }
+  const pyramidLevels = [
+    {
+      name: 'Systematic Reviews',
+      width: '30%',
+      description: 'The highest level of evidence. These studies collect and critically analyze multiple research studies or papers on a specific topic, providing a comprehensive summary of the current evidence.',
+      level: 1,
+      evidence: [
+        {
+          title: "The Efficacy of New Drug X: A Meta-Analysis",
+          url: "#",
+          support: "conclusive",
+          trustworthiness: "high",
+          citation: "Review Board, A. et al. 'The Efficacy of New Drug X: A Meta-Analysis.' Journal of Meta-Analyses, vol. 15, no. 2, 2023, pp. 45-60."
+        }
+      ]
+    },
+    {
+      name: 'Randomized Controlled Trials',
+      width: '45%',
+      description: 'Considered the gold standard for clinical trials. Participants are randomly assigned to an experimental group or a control group to compare the effects of an intervention against a control.',
+      level: 2,
+      evidence: [
+        {
+          title: "A Double-Blind Study of Aspirin for Headache Prevention",
+          url: "#",
+          support: "supports",
+          trustworthiness: "high",
+          citation: "Smith, J., & Doe, J. 'A Double-Blind, Placebo-Controlled Study of Low-Dose Aspirin for Migraine Prevention.' The Clinical Trials Journal, vol. 8, no. 4, 2022, pp. 210-225."
+        },
+        {
+          title: "Vitamin C Efficacy in a Controlled Group",
+          url: "#",
+          support: "contradicts",
+          trustworthiness: "medium",
+          citation: "Granger, H. 'Re-evaluating Vitamin C Supplementation: A Randomized Trial.' Journal of Nutritional Science, vol. 12, no. 1, 2021, pp. 35-48."
+        }
+      ]
+    },
+    {
+      name: 'Non-randomized Control Trials',
+      width: '60%',
+      description: 'Similar to RCTs but participants are not randomly assigned to groups. These are often used when randomization is not ethical or feasible.',
+      level: 3,
+      evidence: []
+    },
+    {
+      name: 'Observational Studies with Comparison Groups',
+      width: '75%',
+      description: 'Researchers observe participants to assess health outcomes, comparing a group that received an exposure to one that did not. Examples include cohort studies and case-control studies.',
+      level: 4,
+      evidence: [
+         {
+          title: "Long-Term Coffee Consumption and Heart Disease: A Cohort Study",
+          url: "#",
+          support: "supports",
+          trustworthiness: "medium",
+          citation: "Chen, L. et al. 'Coffee Consumption and Risk of Cardiovascular Diseases: A Large-Scale Observational Study.' American Journal of Epidemiology, vol. 190, no. 8, 2019, pp. 1516-1525."
+        }
+      ]
+    },
+    {
+      name: 'Case Series & Reports',
+      width: '90%',
+      description: 'Collections of reports on the treatment of individual patients or a report on a single patient. They can be helpful for identifying new diseases or rare side effects but have no control group for comparison.',
+      level: 5,
+      evidence: []
+    },
+    {
+      name: 'Expert Opinion',
+      width: '100%',
+      description: 'The lowest level of evidence. This is based on the personal experience and beliefs of an expert in the field. It is not based on scientific studies and is prone to bias.',
+      level: 6,
+      evidence: [
+        {
+          title: "An Interview with Dr. Eleanor Vance on Modern Surgical Techniques",
+          url: "#",
+          support: "supports",
+          trustworthiness: "low",
+          citation: "Vance, E. 'Perspectives on Modern Surgery.' The Medical Roundtable, 2023. Web."
+        }
+      ]
+    }
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-      {levels.map((level, index) => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '16px 0' }}>
+      {pyramidLevels.map((level, index) => (
         <div
           key={level.name}
-          onClick={() => onLevelClick(level)}
           style={{
-            width: `${100 - index * 15}%`,
-            padding: '12px',
-            backgroundColor: level.color,
-            color: 'white',
-            textAlign: 'center',
-            borderRadius: '8px',
+            position: 'relative',
             cursor: 'pointer',
-            fontSize: index < 2 ? '14px' : '12px',
-            fontWeight: '600',
-            transition: 'transform 0.2s',
+            width: level.width,
+            transition: 'all 0.3s ease'
           }}
-          onMouseOver={(e) => {
-            e.target.style.transform = 'scale(1.02)';
+          onClick={() => onLevelClick(level)}
+          onMouseEnter={(e) => {
+            const levelDiv = e.currentTarget;
+            const tooltip = levelDiv.querySelector('.tooltip');
+            levelDiv.style.transform = 'scale(1.05)';
+            if (tooltip) tooltip.style.opacity = '1';
           }}
-          onMouseOut={(e) => {
-            e.target.style.transform = 'scale(1)';
+          onMouseLeave={(e) => {
+            const levelDiv = e.currentTarget;
+            const tooltip = levelDiv.querySelector('.tooltip');
+            levelDiv.style.transform = 'scale(1)';
+            if (tooltip) tooltip.style.opacity = '0';
           }}
         >
-          {level.name}
+          <div
+            style={{
+              backgroundColor: '#374151',
+              border: '1px solid #4B5563',
+              borderRadius: '4px',
+              padding: '12px 8px',
+              textAlign: 'center',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = '#2563EB';
+              e.target.style.borderColor = '#3B82F6';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = '#374151';
+              e.target.style.borderColor = '#4B5563';
+            }}
+          >
+            <span style={{
+              fontSize: '14px',
+              fontWeight: '500',
+              color: 'white',
+              display: 'block',
+              lineHeight: '1.2'
+            }}>
+              {level.name}
+            </span>
+          </div>
+          
+          {/* Hover tooltip */}
+          <div
+            className="tooltip"
+            style={{
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '8px',
+              padding: '12px',
+              backgroundColor: '#1F2937',
+              color: 'white',
+              fontSize: '12px',
+              borderRadius: '8px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+              opacity: '0',
+              transition: 'opacity 0.3s ease',
+              pointerEvents: 'none',
+              zIndex: 10,
+              width: '192px',
+              textAlign: 'center'
+            }}
+          >
+            <div style={{ fontWeight: '600', marginBottom: '4px' }}>Level {level.level}</div>
+            <div style={{ color: '#D1D5DB' }}>Click to learn more</div>
+            {/* Tooltip arrow */}
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 0,
+              height: 0,
+              borderLeft: '4px solid transparent',
+              borderRight: '4px solid transparent',
+              borderTop: '4px solid #1F2937'
+            }} />
+          </div>
         </div>
       ))}
+      
+      <div style={{ marginTop: '16px', textAlign: 'center' }}>
+        <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>Higher Quality Evidence ↑</div>
+        <div style={{ fontSize: '12px', color: '#9CA3AF' }}>Lower Quality Evidence ↓</div>
+      </div>
     </div>
   );
+};
+
+// Additional icons
+const X = ({ className, ...props }) => (
+  <svg className={className} {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="18" y1="6" x2="6" y2="18"/>
+    <line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+);
+
+const ExternalLink = ({ className, ...props }) => (
+  <svg className={className} {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+    <polyline points="15,3 21,3 21,9"/>
+    <line x1="10" y1="14" x2="21" y2="3"/>
+  </svg>
+);
+
+// Badge Component
+const Badge = ({ children, variant, className, style }) => {
+  const baseStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '4px 8px',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: '500',
+    border: '1px solid',
+    ...style
+  };
+  
+  return <span style={baseStyle} className={className}>{children}</span>;
+};
+
+const supportColors = {
+  conclusive: { backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ADE80', borderColor: 'rgba(34, 197, 94, 0.3)' },
+  supports: { backgroundColor: 'rgba(37, 99, 235, 0.2)', color: '#60A5FA', borderColor: 'rgba(37, 99, 235, 0.3)' },
+  contradicts: { backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#F87171', borderColor: 'rgba(239, 68, 68, 0.3)' },
 };
 
 // Info Modal Component
@@ -202,30 +388,120 @@ const InfoModal = ({ level, isOpen, onClose }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000
+        zIndex: 1000,
+        padding: '20px'
       }}
       onClick={onClose}
     >
       <div
         style={{
-          backgroundColor: '#1F2937',
-          padding: '32px',
+          backgroundColor: '#111827',
+          border: '1px solid #374151',
           borderRadius: '16px',
-          maxWidth: '500px',
-          margin: '20px',
-          border: '1px solid #374151'
+          maxWidth: '600px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          position: 'relative'
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={{ color: 'white', fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>
-          {level.name}
-        </h3>
-        <p style={{ color: '#D1D5DB', lineHeight: '1.6', marginBottom: '24px' }}>
-          {level.description}
-        </p>
-        <Button onClick={onClose} style={{ width: '100%' }}>
-          Close
-        </Button>
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            border: '1px solid #4B5563',
+            backgroundColor: 'transparent',
+            color: '#D1D5DB',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#1F2937'}
+          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+        >
+          <X style={{ width: '16px', height: '16px' }} />
+        </button>
+
+        <div style={{ padding: '32px' }}>
+          {/* Header */}
+          <div style={{ marginBottom: '24px' }}>
+            <h2 style={{ color: '#60A5FA', fontSize: '32px', fontWeight: 'bold', marginBottom: '8px', margin: 0 }}>
+              {level.name}
+            </h2>
+            <p style={{ color: '#9CA3AF', fontSize: '16px', lineHeight: '1.6', marginTop: '8px' }}>
+              {level.description}
+            </p>
+          </div>
+
+          {/* Supporting Evidence */}
+          {level.evidence && level.evidence.length > 0 && (
+            <div style={{ marginTop: '24px' }}>
+              <h3 style={{ fontSize: '20px', fontWeight: '600', color: 'white', marginBottom: '24px' }}>
+                Supporting Evidence
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {level.evidence.map((item, index) => (
+                  <div 
+                    key={index} 
+                    style={{ 
+                      backgroundColor: 'rgba(31, 41, 55, 0.5)', 
+                      padding: '16px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #374151' 
+                    }}
+                  >
+                    <a 
+                      href={item.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '8px', 
+                        fontSize: '18px', 
+                        fontWeight: '500', 
+                        color: 'white', 
+                        textDecoration: 'none',
+                        marginBottom: '12px',
+                        transition: 'color 0.2s'
+                      }}
+                      onMouseOver={(e) => e.target.style.color = '#60A5FA'}
+                      onMouseOut={(e) => e.target.style.color = 'white'}
+                    >
+                      <span>{index + 1}. {item.title}</span>
+                      <ExternalLink style={{ width: '16px', height: '16px' }} />
+                    </a>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', marginBottom: '12px' }}>
+                      <span style={{ fontWeight: '600', color: 'white' }}>Support claim:</span>
+                      <Badge style={supportColors[item.support]}>
+                        {item.support}
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <div style={{ color: '#60A5FA', fontWeight: '600', marginBottom: '4px' }}>
+                        MLA Citation:
+                      </div>
+                      <div style={{ color: 'white', fontFamily: 'monospace', fontSize: '14px', lineHeight: '1.4' }}>
+                        {item.citation}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -373,13 +649,15 @@ function App() {
 
         {/* Input Area */}
         {!result && (
-          <div style={{ backgroundColor: 'rgba(31, 41, 55, 0.3)', borderRadius: '16px', padding: '32px', border: '1px solid #374151' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <Textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Paste an article URL, text excerpt, or ask about healthcare information credibility..."
-              />
+          <div style={{ backgroundColor: 'rgba(31, 41, 55, 0.3)', borderRadius: '16px', padding: '24px', border: '1px solid #374151', width: '100%', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+              <div style={{ width: '100%', overflow: 'hidden' }}>
+                <Textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Paste an article URL, text excerpt, or ask about healthcare information credibility..."
+                />
+              </div>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
