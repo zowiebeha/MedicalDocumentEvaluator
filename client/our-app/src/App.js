@@ -260,7 +260,7 @@ const EvidencePyramid = ({ onLevelClick, analysisResult }) => {
 };
 
 // Info Modal Component
-const InfoModal = ({ level, isOpen, onClose }) => {
+const InfoModal = ({ level, isOpen, onClose, mlaCitations }) => {
   if (!level || !isOpen) return null;
 
   const supportColors = {
@@ -380,12 +380,23 @@ const InfoModal = ({ level, isOpen, onClose }) => {
                   </span>
                 </div>
 
-                <div>
-                  <div style={{ color: '#60A5FA', fontWeight: '600', marginBottom: '4px' }}>MLA Citation:</div>
-                  <div style={{ color: 'white', fontFamily: 'monospace', fontSize: '14px', lineHeight: '1.4' }}>
-                    {item.citation}
+                {mlaCitations && item.citation && (
+                  <div>
+                    <div style={{ color: '#60A5FA', fontWeight: '600', marginBottom: '4px' }}>MLA Citation:</div>
+                    <div style={{ color: 'white', fontFamily: 'monospace', fontSize: '14px', lineHeight: '1.4' }}>
+                      {item.citation}
+                    </div>
                   </div>
-                </div>
+                )}
+                
+                {!mlaCitations && (
+                  <div>
+                    <div style={{ color: '#9CA3AF', fontWeight: '600', marginBottom: '4px' }}>Citation:</div>
+                    <div style={{ color: '#6B7280', fontSize: '14px', lineHeight: '1.4' }}>
+                      Enable MLA Citations toggle to view citations
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -529,7 +540,7 @@ export default function HealthCheck() {
         "evidence_review": "[paragraph reviewing claims against scientific evidence hierarchy]",
         "bias_detection": "[paragraph analyzing for biased language and misleading techniques]",
         "recommendations": "[actionable advice for the user]",
-        "citations": "[MLA citation if applicable, or note that citation cannot be generated]",
+        "citations": "${mlaCitations ? '[MLA citation if applicable, or note that citation cannot be generated]' : '[Citation generation disabled - toggle MLA Citations to enable]'}",
         "pyramid_classification": {
           "level_1": [array of systematic reviews found, empty if none],
           "level_2": [array of RCTs found, empty if none],
@@ -540,7 +551,9 @@ export default function HealthCheck() {
         }
       }
 
-      For each pyramid level array, include objects with: {"title": "Study/Article Title", "support": "supports/contradicts/conclusive", "citation": "MLA citation"}
+      For each pyramid level array, include objects with: {"title": "Study/Article Title", "support": "supports/contradicts/conclusive", "citation": "${mlaCitations ? 'MLA citation' : 'Citation not available - MLA toggle disabled'}"}
+
+      ${mlaCitations ? 'IMPORTANT: Generate proper MLA citations for all studies and articles found. Use standard MLA format with author names, titles, publication information, and dates.' : 'IMPORTANT: Do not generate MLA citations as the toggle is disabled. Use generic descriptions instead.'}
 
       Respond only with valid JSON, no additional text, no markdown formatting, no code blocks.
     `;
@@ -703,7 +716,7 @@ export default function HealthCheck() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#111827', color: 'white' }}>
-      <InfoModal level={selectedPyramidLevel} isOpen={!!selectedPyramidLevel} onClose={closeModal} />
+      <InfoModal level={selectedPyramidLevel} isOpen={!!selectedPyramidLevel} onClose={closeModal} mlaCitations={mlaCitations} />
       
       {/* Header */}
       <header style={{
@@ -970,14 +983,14 @@ export default function HealthCheck() {
                   </div>
                 )}
 
-                {result?.citations && (
+                {mlaCitations && result?.citations && (
                   <div style={{
                     backgroundColor: '#1F2937',
                     borderRadius: '12px',
                     padding: '24px',
                     border: '1px solid #374151'
                   }}>
-                    <h3 style={{ fontSize: '20px', fontWeight: '600', color: 'white', marginBottom: '16px' }}>Citations</h3>
+                    <h3 style={{ fontSize: '20px', fontWeight: '600', color: 'white', marginBottom: '16px' }}>MLA Citations</h3>
                     <p style={{ color: '#D1D5DB', lineHeight: '1.6', fontFamily: 'monospace', fontSize: '14px' }}>{result.citations}</p>
                   </div>
                 )}
@@ -1066,7 +1079,9 @@ export default function HealthCheck() {
                   gap: '12px',
                   width: window.innerWidth < 768 ? '100%' : 'auto'
                 }}>
-                  <label htmlFor="mla-toggle" style={{ color: '#9CA3AF', fontSize: '14px' }}>MLA Citations</label>
+                  <label htmlFor="mla-toggle" style={{ color: mlaCitations ? '#60A5FA' : '#9CA3AF', fontSize: '14px', fontWeight: mlaCitations ? '600' : '400' }}>
+                    MLA Citations {mlaCitations ? '(Enabled)' : '(Disabled)'}
+                  </label>
                   <div
                     id="mla-toggle"
                     onClick={() => setMlaCitations(!mlaCitations)}
