@@ -1,15 +1,138 @@
 
 import React, { useState, useEffect } from 'react';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// NOTE: Replace this with your actual Gemini API key from Google AI Studio
-// Get your API key at: https://makersuite.google.com/app/apikey
-const GEMINI_API_KEY = 'AIzaSyCGbhBAkpaMbcCzHDMQ3Ds5teSG4PXLTw4';
+const API_KEY = "AIzaSyCGbhBAkpaMbcCzHDMQ3Ds5teSG4PXLTw4"; // Replace with your actual API key
 
-// Initialize Google GenAI
-const ai = new GoogleGenAI({
-  apiKey: GEMINI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(API_KEY);
+
+const prompt = `
+We have an app that lets the general public evaluate the trustworthiness of medical claims and documents using the Evidence-based medicine pyramid from researchgate.net as the evaluation framework.
+
+The app accepts ten types of inputs:
+A question (e.g. does coffee cure cancer?)
+A claim (e.g. coffee cures cancer)
+Document(s) (in any popular file format such as pdf and word)
+Article link(s)
+A question AND document(s) AND article link(s)
+A question AND document(s)
+A question AND article link(s)
+A claim AND document(s) AND article link(s)
+A claim AND document(s)
+A claim AND article link(s)
+
+For any input WITHOUT a claim, the input should be converted into a claim. Here are some examples:
+Does coffee cure cancer? → Coffee cures cancer
+Is alcohol good for my liver? → Alcohol is positively affects the liver
+[a document/article arguing that the minimum hours of sleep an adolescent should get per night is 8] → Adolescents should sleep at least 8 hours per night
+[a document that argues that alcohol is good for digestion and another document that argues that alcohol is harmful to digestion] → Alcohol Is good for digestion
+Create a claim out of a random one of the documents/articles provided 
+If the input is nonsensical (it cannot read the file/article or is not related to the medical field), indicate that to the user and have them input something else
+
+The app sends a request to the Google Gemini API which will give an output depending on the type of input:
+Articles and their trustworthiness 
+Articles and their trustworthiness 
+Trustworthiness 
+Trustworthiness 
+An evidence-based medicine pyramid where document(s) and article(s) are grouped into each section of the pyramid based on their trustworthiness AND the level of support for the generated claim
+An evidence-based medicine pyramid where document(s) are grouped into each section of the pyramid based on their trustworthiness AND the level of support for the generated claim
+An evidence-based medicine pyramid where article(s) are grouped into each section of the pyramid based on their trustworthiness AND the level of support for the generated claim
+An evidence-based medicine pyramid where document(s) and article(s) are grouped into each section of the pyramid based on their trustworthiness AND the level of support for the claim
+An evidence-based medicine pyramid where document(s) are grouped into each section of the pyramid based on their trustworthiness AND the level of support for the claim
+An evidence-based medicine pyramid where article(s) are grouped into each section of the pyramid based on their trustworthiness AND the level of support for the claim
+
+The trustworthiness of an article/link is grouped into three different categories:
+Very High (Systematic Reviews)
+High (Random Controlled Trials)
+Moderate High (Non-randomized Controlled Trials)
+Moderate (Observational Studies with Comparison Groups)
+Moderate Low (Cohort Studies)
+Low (Case Series and Reports)
+Very Low (Expert Opinion)
+
+The level of support an article/link has for a claim is grouped into three different categories:
+Supports (Fully agrees with the claim)
+Inconclusive (Mixed agreement and disagreement with the claim)
+Contradicts (Fully disagree with the claim)
+
+Here is how the json should be formatted:
+{
+  "claim": "<restated claim in clear language>",
+  "evidence": {
+    "systematic_reviews": [
+      {
+        "title": "<title of study>",
+        "summary": "<1–2 sentence plain-language summary>",
+        "link": "<URL to study>",
+        "citation": "<MLA formatted citation>",
+        "trustworthiness": "very high",
+        "level_of_support": "supports | contradicts | inconclusive"
+      }
+    ],
+    "rcts": [
+      {
+        "title": "<title of randomized controlled trial>",
+        "summary": "<summary>",
+        "link": "<URL>",
+        "citation": "<MLA formatted citation>",
+        "trustworthiness": "high",
+        "level_of_support": "supports | contradicts | inconclusive"
+      }
+    ],
+    "non_randomized_controlled_trials": [
+      {
+        "title": "<title of non-randomized controlled trial>",
+        "summary": "<summary>",
+        "link": "<URL>",
+        "citation": "<MLA formatted citation>",
+        "trustworthiness": "moderate high",
+        "level_of_support": "supports | contradicts | inconclusive"
+      }
+    ],
+    "observational_with_comparison": [
+      {
+        "title": "<title of observational study with comparison group>",
+        "summary": "<summary>",
+        "link": "<URL>",
+        "citation": "<MLA formatted citation>",
+        "trustworthiness": "moderate",
+        "level_of_support": "supports | contradicts | inconclusive"
+      }
+    ],
+    "cohort_studies": [
+      {
+        "title": "<title of cohort study>",
+        "summary": "<summary>",
+        "link": "<URL>",
+        "citation": "<MLA formatted citation>",
+        "trustworthiness": "moderate low",
+        "level_of_support": "supports | contradicts | inconclusive"
+      }
+    ],
+    "case_series_and_reports": [
+      {
+        "title": "<title of case series/report>",
+        "summary": "<summary>",
+        "link": "<URL>",
+        "citation": "<MLA formatted citation>",
+        "trustworthiness": "low",
+        "level_of_support": "supports | contradicts | inconclusive"
+      }
+    ],
+    "expert_opinion": [
+      {
+        "title": "<title of expert commentary or opinion>",
+        "summary": "<summary>",
+        "link": "<URL>",
+        "citation": "<MLA formatted citation>",
+        "trustworthiness": "very low",
+        "level_of_support": "supports | contradicts | inconclusive"
+      }
+    ]
+  },
+  "overall_summary": "<plain-language paragraph summarizing what the evidence means for the general public>"
+}
+`;
 
 const pyramidLevels = [
   {
@@ -90,6 +213,14 @@ const pyramidLevels = [
   }
 ];
 
+const sampleResult = {
+  overall_score: 7,
+  source_analysis: "The article is from a reputable medical journal, but the author has ties to a pharmaceutical company, suggesting a potential conflict of interest.",
+  evidence_review: "The claims are supported by a large-scale randomized controlled trial, which is a high level of evidence.",
+  bias_detection: "Language used is mostly neutral, but some phrases appear to favor the sponsored drug.",
+  recommendations: "While the evidence is strong, consider looking for a systematic review for a more comprehensive understanding and be mindful of the author's potential bias.",
+  citations: "Doe, J. (2023). 'A new frontier in cardiology.' Journal of Modern Medicine, 45(2), 123-135."
+};
 
 // Icons as SVG components
 const ShieldIcon = ({ size = 24, color = "currentColor" }) => (
@@ -145,115 +276,60 @@ const ExternalLinkIcon = ({ size = 24, color = "currentColor" }) => (
 );
 
 // Evidence Pyramid Component
-const EvidencePyramid = ({ onLevelClick, analysisResult }) => {
-  const getLevelColor = (level, score, hasEvidence) => {
-    if (!score) return { backgroundColor: '#374151', borderColor: '#4B5563' };
-    
-    // If no evidence for this level, make it grayed out
-    if (!hasEvidence) {
-      return { backgroundColor: '#1F2937', borderColor: '#374151' };
-    }
-    
-    // Higher levels (1-2) should be highlighted for high scores (8-10)
-    // Lower levels (5-6) should be highlighted for low scores (1-4)
-    const isHighQuality = level <= 2;
-    const isLowQuality = level >= 5;
-    const isHighScore = score >= 8;
-    const isLowScore = score <= 4;
-    
-    if ((isHighQuality && isHighScore) || (isLowQuality && isLowScore)) {
-      return { backgroundColor: '#059669', borderColor: '#10B981' }; // Green for good match
-    } else if ((isHighQuality && isLowScore) || (isLowQuality && isHighScore)) {
-      return { backgroundColor: '#DC2626', borderColor: '#EF4444' }; // Red for mismatch
-    }
-    
-    return { backgroundColor: '#374151', borderColor: '#4B5563' }; // Default
-  };
-
-  const getEvidenceCount = (level) => {
-    if (!analysisResult?.pyramid_classification) return 0;
-    const levelKey = `level_${level}`;
-    return analysisResult.pyramid_classification[levelKey]?.length || 0;
-  };
-
-  const isLevelClickable = (level) => {
-    return getEvidenceCount(level) > 0;
-  };
-
+const EvidencePyramid = ({ onLevelClick }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '16px 0' }}>
-      {pyramidLevels.map((level, index) => {
-        const hasEvidence = isLevelClickable(level.level);
-        const evidenceCount = getEvidenceCount(level.level);
-        const colors = getLevelColor(level.level, analysisResult?.overall_score, hasEvidence);
-        
-        return (
+      {pyramidLevels.map((level, index) => (
+        <div
+          key={level.name}
+          style={{
+            width: level.width,
+            position: 'relative',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease'
+          }}
+          onClick={() => onLevelClick(level)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
           <div
-            key={level.name}
             style={{
-              width: level.width,
-              position: 'relative',
-              cursor: hasEvidence ? 'pointer' : 'not-allowed',
-              transition: 'all 0.3s ease',
-              opacity: hasEvidence ? 1 : 0.5
+              backgroundColor: '#374151',
+              border: '1px solid #4B5563',
+              borderRadius: '4px',
+              padding: '12px 8px',
+              textAlign: 'center',
+              transition: 'all 0.3s ease'
             }}
-            onClick={() => hasEvidence && onLevelClick({...level, evidence: analysisResult?.pyramid_classification?.[`level_${level.level}`] || []})}
             onMouseEnter={(e) => {
-              if (hasEvidence) {
-                e.currentTarget.style.transform = 'scale(1.05)';
-              }
+              e.currentTarget.style.backgroundColor = '#2563EB';
+              e.currentTarget.style.borderColor = '#3B82F6';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.backgroundColor = '#374151';
+              e.currentTarget.style.borderColor = '#4B5563';
             }}
           >
-            <div
-              style={{
-                backgroundColor: colors.backgroundColor,
-                border: `1px solid ${colors.borderColor}`,
-                borderRadius: '4px',
-                padding: '12px 8px',
-                textAlign: 'center',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseEnter={(e) => {
-                if (hasEvidence) {
-                  e.currentTarget.style.backgroundColor = '#2563EB';
-                  e.currentTarget.style.borderColor = '#3B82F6';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = colors.backgroundColor;
-                e.currentTarget.style.borderColor = colors.borderColor;
-              }}
-            >
-              <span style={{
-                fontSize: window.innerWidth < 640 ? '12px' : '14px',
-                fontWeight: '500',
-                color: hasEvidence ? 'white' : '#6B7280',
-                lineHeight: '1.2',
-                display: 'block'
-              }}>
-                {level.name}
-                {hasEvidence && ` (${evidenceCount})`}
-              </span>
-            </div>
+            <span style={{
+              fontSize: window.innerWidth < 640 ? '12px' : '14px',
+              fontWeight: '500',
+              color: 'white',
+              lineHeight: '1.2',
+              display: 'block'
+            }}>
+              {level.name}
+            </span>
           </div>
-        );
-      })}
+        </div>
+      ))}
       
       <div style={{ marginTop: '16px', textAlign: 'center' }}>
         <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>Higher Quality Evidence ↑</div>
         <div style={{ fontSize: '12px', color: '#9CA3AF' }}>Lower Quality Evidence ↓</div>
-        {analysisResult?.api_error ? (
-          <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '8px', opacity: 0.6 }}>
-            Analysis Unavailable - API Error
-          </div>
-        ) : analysisResult?.overall_score ? (
-          <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '8px' }}>
-            Score: {analysisResult.overall_score}/10 | Level: {analysisResult.evidence_level || 'Unknown'}
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -400,14 +476,14 @@ export default function HealthCheck() {
   const [prompt, setPrompt] = useState('');
   const [mlaCitations, setMlaCitations] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [result, setResult] = useState(null); // Show sample result by default -> Changed to null
+  const [result, setResult] = useState(sampleResult); // Show sample result by default
   const [selectedPyramidLevel, setSelectedPyramidLevel] = useState(null);
 
   useEffect(() => {
     // Programmatically set the favicon
     const favicon = document.createElement('link');
     favicon.rel = 'icon';
-    favicon.href = '/favicon.ico'; // Assumes favicon.ico is in the public root folder
+    favicon.href = './favicon.ico'; // Assumes favicon.ico is in the public root folder
     document.head.appendChild(favicon);
 
     // Cleanup function to remove the favicon when the component unmounts
@@ -416,277 +492,35 @@ export default function HealthCheck() {
     };
   }, []); // Empty dependency array ensures this runs only once
 
-  const validateInput = (input) => {
-    const trimmed = input.trim().toLowerCase();
+//   const handleSubmit = async () => {
+//     if (!prompt.trim()) return;
     
-    // Check if input is too short or seems like gibberish
-    if (trimmed.length < 10) {
-      return { valid: false, message: "Please provide a longer, more detailed input (at least 10 characters)." };
-    }
-    
-    // Check for common non-article patterns
-    const invalidPatterns = [
-      /^[0-9\s\-_.,!?]+$/, // Only numbers and punctuation
-      /^(hello|hi|hey|test|testing|asdf|qwerty|123|abc)/, // Common test inputs
-      /^[a-z\s]{1,5}$/, // Very short alphabetic strings
-      /^(lol|lmao|haha|wtf|omg|wow)$/, // Common chat expressions
-      /^[^a-zA-Z0-9]*$/, // No alphanumeric characters
-    ];
-    
-    for (const pattern of invalidPatterns) {
-      if (pattern.test(trimmed)) {
-        return { valid: false, message: "Please provide a healthcare article, claim, or research question to analyze." };
-      }
-    }
-    
-    // Check if it looks like a legitimate healthcare/medical input
-    const healthcareKeywords = [
-      'health', 'medical', 'medicine', 'disease', 'treatment', 'drug', 'medicine', 'symptom',
-      'diagnosis', 'therapy', 'clinical', 'study', 'research', 'patient', 'doctor', 'hospital',
-      'cancer', 'diabetes', 'heart', 'blood', 'brain', 'covid', 'vaccine', 'virus', 'infection'
-    ];
-    
-    const hasHealthcareContent = healthcareKeywords.some(keyword => trimmed.includes(keyword));
-    
-    if (!hasHealthcareContent && trimmed.length < 50) {
-      return { valid: false, message: "Please provide healthcare-related content, articles, or medical claims to analyze." };
-    }
-    
-    return { valid: true };
-  };
-
-
-  const testApiConnection = async () => {
-    try {
-      console.log('Testing API connection with Google GenAI SDK...');
-      
-      // Try different model names in order of preference
-      const modelNames = [
-        'gemini-2.5-flash',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-        'gemini-1.0-pro'
-      ];
-      
-      for (const modelName of modelNames) {
-        try {
-          console.log(`Testing model: ${modelName}`);
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: "Test connection",
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 10,
-            }
-          });
-          
-          console.log(`API connection successful with model: ${modelName}`);
-          return { success: true, model: modelName };
-        } catch (error) {
-          console.error(`API connection test failed for ${modelName}:`, error);
-          continue;
-        }
-      }
-      
-      console.error('All API connection tests failed');
-      return { success: false };
-    } catch (error) {
-      console.error('API connection test failed:', error);
-      return { success: false };
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!prompt.trim()) return;
-    
-    // Validate input
-    const validation = validateInput(prompt);
-    if (!validation.valid) {
-      alert(validation.message);
-      return;
-    }
+//     setIsAnalyzing(true);
+//     // Simulate API call
+//     setTimeout(() => {
+//       setResult(sampleResult);
+//       setIsAnalyzing(false);
+//     }, 1500);
+//   };
+    const handleSubmit = async () => {
+    const hardcodedPrompt = "Explain the importance of evidence-based practice in healthcare.";
     
     setIsAnalyzing(true);
-    setResult(null); // Clear previous results
-
-    const analysisPrompt = `
-      You are an AI assistant specialized in evaluating the credibility of healthcare information.
-      Analyze the following text, URL, or question provided by the user: "${prompt}".
-
-      Classify the evidence level of this content according to the Evidence-Based Medicine pyramid:
-      1. Systematic Reviews & Meta-analyses (highest quality)
-      2. Randomized Controlled Trials
-      3. Non-randomized Control Trials
-      4. Observational Studies with Comparison Groups
-      5. Case Series & Reports
-      6. Expert Opinion (lowest quality)
-
-      Provide a response in JSON format with the following structure:
-      {
-        "overall_score": [number from 1-10],
-        "evidence_level": [number 1-6 indicating which pyramid level this content represents],
-        "source_analysis": "[paragraph analyzing source reputation and conflicts of interest]",
-        "evidence_review": "[paragraph reviewing claims against scientific evidence hierarchy]",
-        "bias_detection": "[paragraph analyzing for biased language and misleading techniques]",
-        "recommendations": "[actionable advice for the user]",
-        "citations": "[MLA citation if applicable, or note that citation cannot be generated]",
-        "pyramid_classification": {
-          "level_1": [array of systematic reviews found, empty if none],
-          "level_2": [array of RCTs found, empty if none],
-          "level_3": [array of non-RCTs found, empty if none],
-          "level_4": [array of observational studies found, empty if none],
-          "level_5": [array of case reports found, empty if none],
-          "level_6": [array of expert opinions found, empty if none]
-        }
-      }
-
-      For each pyramid level array, include objects with: {"title": "Study/Article Title", "support": "supports/contradicts/conclusive", "citation": "MLA citation"}
-
-      Respond only with valid JSON, no additional text, no markdown formatting, no code blocks.
-    `;
 
     try {
-      console.log('Making API request to Gemini using SDK...');
-      
-      // Try different model names in order of preference
-      const modelNames = [
-        'gemini-2.5-flash',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-        'gemini-1.0-pro'
-      ];
-      
-      let analysisResult;
-      let lastError;
-      
-      for (const modelName of modelNames) {
-        try {
-          console.log(`Trying model: ${modelName}`);
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: analysisPrompt,
-            generationConfig: {
-              temperature: 0.3,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 2048,
-            }
-          });
-          
-          console.log(`API Response successful with model: ${modelName}`);
-          console.log('Response:', response);
-          
-          // Extract the text from the response
-          const generatedText = response.text;
-          
-          if (!generatedText) {
-            console.error('No generated text found in response:', response);
-            throw new Error('No content generated by Gemini.');
-          }
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        const result = await model.generateContent(hardcodedPrompt);
+        const response = await result.response;
+        const text = response.text();
 
-          console.log('Generated text:', generatedText);
-
-          // Parse the JSON from the generated text
-          try {
-            // Clean the generated text to extract JSON from markdown code blocks
-            let jsonText = generatedText.trim();
-            
-            // Remove markdown code block formatting if present
-            if (jsonText.startsWith('```json')) {
-              jsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-            } else if (jsonText.startsWith('```')) {
-              jsonText = jsonText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-            }
-            
-            // Try to find JSON object boundaries if there's extra text
-            const jsonStart = jsonText.indexOf('{');
-            const jsonEnd = jsonText.lastIndexOf('}');
-            
-            if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-              jsonText = jsonText.substring(jsonStart, jsonEnd + 1);
-            }
-            
-            // Remove any leading/trailing whitespace
-            jsonText = jsonText.trim();
-            
-            console.log('Cleaned JSON text:', jsonText);
-            
-            analysisResult = JSON.parse(jsonText);
-            console.log('Parsed analysis result:', analysisResult);
-            break; // Success, exit the loop
-          } catch (parseError) {
-            console.error('JSON Parse Error:', parseError);
-            console.error('Raw text that failed to parse:', generatedText);
-            lastError = new Error(`Failed to parse JSON response from Gemini: ${parseError.message}`);
-            continue; // Try next model
-          }
-          
-        } catch (modelError) {
-          console.error(`Error with model ${modelName}:`, modelError);
-          lastError = modelError;
-          continue; // Try next model
-        }
-      }
-      
-      if (!analysisResult) {
-        throw lastError || new Error('All model attempts failed');
-      }
-      
-      // Validate that we have the required fields
-      if (!analysisResult.overall_score && analysisResult.overall_score !== 0) {
-        console.warn('Missing overall_score in response, using fallback');
-        analysisResult.overall_score = 5;
-      }
-      
-      setResult(analysisResult);
-
+        setResult(text);
     } catch (error) {
-      console.error("Gemini API analysis failed:", error);
-      
-      // Determine specific error message based on error type
-      let errorMessage = "Unable to analyze source due to technical difficulties.";
-      
-      if (error.message.includes('API request failed: 400')) {
-        errorMessage = "Invalid API request. Please check the API key configuration.";
-      } else if (error.message.includes('API request failed: 401')) {
-        errorMessage = "API key is invalid or expired. Please update the API key.";
-      } else if (error.message.includes('API request failed: 403')) {
-        errorMessage = "API access forbidden. Please check API permissions and billing.";
-      } else if (error.message.includes('API request failed: 429')) {
-        errorMessage = "API rate limit exceeded. Please try again in a few minutes.";
-      } else if (error.message.includes('API request failed: 500')) {
-        errorMessage = "Server error. Please try again later.";
-      } else if (error.message.includes('Failed to fetch')) {
-        errorMessage = "Network error. Please check your internet connection.";
-      } else if (error.message.includes('JSON Parse Error')) {
-        errorMessage = "Invalid response format from API. Please try again.";
-      }
-      
-      // Fallback to a sample result if API fails
-      const fallbackResult = {
-        overall_score: null, // This will show as ?/10
-        evidence_level: null,
-        source_analysis: errorMessage,
-        evidence_review: "Could not perform evidence review due to technical difficulties. When evaluating healthcare information, look for peer-reviewed studies, systematic reviews, and clinical trials as stronger forms of evidence.",
-        bias_detection: "Bias analysis unavailable. Be aware of emotional language, absolute claims without evidence, and financial incentives that might influence the content.",
-        recommendations: "Due to technical issues, we recommend consulting with healthcare professionals and looking for multiple credible sources before making health-related decisions. Please try again later.",
-        citations: "Citation generation unavailable due to API issues.",
-        pyramid_classification: {
-          level_1: [],
-          level_2: [],
-          level_3: [],
-          level_4: [],
-          level_5: [],
-          level_6: []
-        },
-        api_error: true // Flag to indicate API failure
-      };
-      
-      setResult(fallbackResult);
+        console.error("Gemini API call failed:", error);
+        setResult("An error occurred while analyzing. Please try again.");
     } finally {
-      setIsAnalyzing(false);
+        setIsAnalyzing(false);
     }
-  };
+    };
   
   const handlePyramidClick = (level) => {
     setSelectedPyramidLevel(level);
@@ -732,7 +566,7 @@ export default function HealthCheck() {
 
       {/* Main Content */}
       <main style={{ maxWidth: '1152px', margin: '0 auto', padding: '48px 24px' }}>
-        {!result && !isAnalyzing ? (
+        {!result ? (
           <>
             {/* Hero Section */}
             <div style={{ textAlign: 'center', marginBottom: '64px' }}>
@@ -801,49 +635,6 @@ export default function HealthCheck() {
               ))}
             </div>
           </>
-        ) : isAnalyzing ? (
-          /* Loading State */
-          <div style={{ textAlign: 'center', marginBottom: '64px' }}>
-            <div style={{
-              width: '80px',
-              height: '80px',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              borderRadius: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 32px',
-              animation: 'pulse 2s infinite'
-            }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                border: '3px solid #3B82F6',
-                borderTop: '3px solid transparent',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }} />
-            </div>
-            <h2 style={{
-              fontSize: window.innerWidth < 768 ? '36px' : '48px',
-              fontWeight: 'bold',
-              color: 'white',
-              marginBottom: '24px',
-              lineHeight: '1.2'
-            }}>
-              Analyzing Healthcare Information...
-            </h2>
-            <p style={{
-              fontSize: window.innerWidth < 768 ? '18px' : '20px',
-              color: '#9CA3AF',
-              maxWidth: '768px',
-              margin: '0 auto',
-              lineHeight: '1.6'
-            }}>
-              Our AI is evaluating the credibility, evidence quality, and potential bias in your input. 
-              This may take a few moments...
-            </p>
-          </div>
         ) : (
           /* Results Section */
           <div style={{ marginBottom: '32px' }}>
@@ -894,47 +685,17 @@ export default function HealthCheck() {
                   border: '1px solid #374151'
                 }}>
                   <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                    <div style={{ 
-                      fontSize: '48px', 
-                      fontWeight: 'bold', 
-                      color: result?.api_error ? '#6B7280' : 
-                             result?.overall_score >= 8 ? '#10B981' : 
-                             result?.overall_score >= 6 ? '#F59E0B' : 
-                             result?.overall_score >= 4 ? '#EF4444' : '#6B7280',
-                      marginBottom: '8px',
-                      opacity: result?.api_error ? 0.6 : 1
-                    }}>
-                      {result?.api_error ? '?/10' : `${result?.overall_score || 0}/10`}
+                    <div style={{ fontSize: '48px', fontWeight: 'bold', color: '#60A5FA', marginBottom: '8px' }}>
+                      {result.overall_score}/10
                     </div>
-                    <div style={{ 
-                      color: result?.api_error ? '#6B7280' : '#9CA3AF', 
-                      fontSize: '18px', 
-                      marginBottom: '8px',
-                      opacity: result?.api_error ? 0.6 : 1
-                    }}>
-                      Credibility Score
-                    </div>
-                    <div style={{ 
-                      color: result?.api_error ? '#6B7280' : 
-                             result?.overall_score >= 8 ? '#10B981' : 
-                             result?.overall_score >= 6 ? '#F59E0B' : 
-                             result?.overall_score >= 4 ? '#EF4444' : '#6B7280',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      opacity: result?.api_error ? 0.6 : 1
-                    }}>
-                      {result?.api_error ? 'Analysis Unavailable' : 
-                       result?.overall_score >= 8 ? 'Highly Credible' : 
-                       result?.overall_score >= 6 ? 'Moderately Credible' : 
-                       result?.overall_score >= 4 ? 'Low Credibility' : 'Very Low Credibility'}
-                    </div>
+                    <div style={{ color: '#9CA3AF', fontSize: '18px' }}>Credibility Score</div>
                   </div>
                 </div>
 
                 {[
-                  { title: 'Source Analysis', content: result?.source_analysis || 'No analysis available', icon: ShieldIcon },
-                  { title: 'Evidence Review', content: result?.evidence_review || 'No evidence review available', icon: FileTextIcon },
-                  { title: 'Bias Detection', content: result?.bias_detection || 'No bias analysis available', icon: AlertCircleIcon }
+                  { title: 'Source Analysis', content: result.source_analysis, icon: ShieldIcon },
+                  { title: 'Evidence Review', content: result.evidence_review, icon: FileTextIcon },
+                  { title: 'Bias Detection', content: result.bias_detection, icon: AlertCircleIcon }
                 ].map((section, index) => (
                   <div key={index} style={{
                     backgroundColor: '#1F2937',
@@ -958,7 +719,7 @@ export default function HealthCheck() {
                   </div>
                 ))}
 
-                {result?.recommendations && (
+                {result.recommendations && (
                   <div style={{
                     backgroundColor: 'rgba(37, 99, 235, 0.1)',
                     borderRadius: '12px',
@@ -970,7 +731,7 @@ export default function HealthCheck() {
                   </div>
                 )}
 
-                {result?.citations && (
+                {mlaCitations && result.citations && (
                   <div style={{
                     backgroundColor: '#1F2937',
                     borderRadius: '12px',
@@ -1007,7 +768,7 @@ export default function HealthCheck() {
                     <PyramidIcon size={20} color="#60A5FA" />
                     Evidence Pyramid
                   </h3>
-                  <EvidencePyramid onLevelClick={handlePyramidClick} analysisResult={result} />
+                  <EvidencePyramid onLevelClick={handlePyramidClick} />
                   <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '16px', textAlign: 'center' }}>
                     Click any level to learn more about evidence quality.
                   </p>
@@ -1018,7 +779,7 @@ export default function HealthCheck() {
         )}
 
         {/* Input Area */}
-        {!result && !isAnalyzing && (
+        {!result && (
           <div style={{
             backgroundColor: 'rgba(31, 41, 55, 0.3)',
             borderRadius: '16px',
@@ -1100,93 +861,56 @@ export default function HealthCheck() {
                   </div>
                 </div>
                 
-                <div style={{ display: 'flex', gap: '12px', width: window.innerWidth < 768 ? '100%' : 'auto' }}>
-                  <button
-                    onClick={async () => {
-                      console.log('Testing API connection...');
-                      const result = await testApiConnection();
-                      if (result.success) {
-                        alert(`API connection successful! Working model: ${result.model}`);
-                      } else {
-                        alert('API connection failed. Check console for details.');
-                      }
-                    }}
-                    style={{
-                      backgroundColor: '#059669',
-                      color: 'white',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      fontWeight: '600',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      cursor: 'pointer',
-                      border: 'none',
-                      fontSize: '14px',
-                      minHeight: '48px'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#047857';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#059669';
-                    }}
-                  >
-                    Test API
-                  </button>
-                  
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!prompt.trim() || isAnalyzing}
-                    style={{
-                      backgroundColor: '#2563EB',
-                      color: 'white',
-                      padding: '12px 32px',
-                      borderRadius: '12px',
-                      fontWeight: '600',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      cursor: !prompt.trim() || isAnalyzing ? 'not-allowed' : 'pointer',
-                      opacity: !prompt.trim() || isAnalyzing ? 0.5 : 1,
-                      border: 'none',
-                      fontSize: '16px',
-                      flex: 1,
-                      minHeight: '48px'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!(!prompt.trim() || isAnalyzing)) {
-                        e.currentTarget.style.backgroundColor = '#1D4ED8';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!(!prompt.trim() || isAnalyzing)) {
-                        e.currentTarget.style.backgroundColor = '#2563EB';
-                      }
-                    }}
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          border: '2px solid white',
-                          borderTop: '2px solid transparent',
-                          borderRadius: '50%',
-                          animation: 'spin 1s linear infinite'
-                        }} />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <SendIcon size={20} />
-                        Analyze
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!prompt.trim() || isAnalyzing}
+                  style={{
+                    backgroundColor: '#2563EB',
+                    color: 'white',
+                    padding: '12px 32px',
+                    borderRadius: '12px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    cursor: !prompt.trim() || isAnalyzing ? 'not-allowed' : 'pointer',
+                    opacity: !prompt.trim() || isAnalyzing ? 0.5 : 1,
+                    border: 'none',
+                    fontSize: '16px',
+                    width: window.innerWidth < 768 ? '100%' : 'auto',
+                    minHeight: '48px'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!(!prompt.trim() || isAnalyzing)) {
+                      e.currentTarget.style.backgroundColor = '#1D4ED8';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!(!prompt.trim() || isAnalyzing)) {
+                      e.currentTarget.style.backgroundColor = '#2563EB';
+                    }
+                  }}
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
+                        border: '2px solid white',
+                        borderTop: '2px solid transparent',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }} />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <SendIcon size={20} />
+                      Analyze
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -1211,10 +935,6 @@ export default function HealthCheck() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
         }
       `}</style>
     </div>
