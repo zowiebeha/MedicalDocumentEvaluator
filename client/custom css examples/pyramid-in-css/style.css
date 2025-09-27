@@ -21,6 +21,21 @@ body {
     justify-items: center;
     align-items: start;
     
+    isolation: isolate;
+    z-index: 1;
+    
+    &::before {
+        content: "";
+        display: inline-block;
+        position: absolute;
+        width: 45rem;
+        height: 30rem;
+        background: rgb(219, 36, 36);
+        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+        scale: 1.5;
+        z-index: -1;
+    }
+    
     * {
         color: inherit;
     }

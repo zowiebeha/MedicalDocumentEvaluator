@@ -1,0 +1,65 @@
+body {
+    display: grid;
+    justify-content: center;
+}
+
+* {
+    padding: 0;
+    margin: 0;
+}
+
+#info-card {
+    background: rgb(34, 34, 34);
+    width: 20rem;
+    height: 20rem;
+    border-radius: .75rem;
+    padding: 1rem 2rem;
+    color: white;
+    overflow-y: auto;
+    scrollbar-color: rgb(255, 255, 255) rgb(34, 34, 34);
+    font-family: "Poppins";
+    display: grid;
+    align-content: start;
+    border: 1px solid rgb(104, 104, 104);
+     position: relative;
+    a {
+        color: white;
+        
+    }
+    .heading {
+        font-size: 1.2rem;
+    }
+    li::marker {
+        font-size: 0;
+    }
+    li {
+        text-indent: 1rem;
+    }
+    
+    .title {
+        font-size: 1.2rem;
+        justify-self: center;
+        margin-bottom: 1rem;
+        font-weight: bold;
+    }
+    
+    .close {
+        color: rgb(104, 9, 9);
+        font-weight: bold;
+        font-size: 1.2rem;
+        border: none;
+        width: 1.5rem;
+        height: 1.5rem;
+        background: rgb(209, 12, 12);
+        border-radius: 16px;
+        position: absolute;
+        right: 0.55rem;
+        top: .75rem;
+        cursor: pointer;
+        
+        transition: background 0.3s ease;
+        &:hover {
+            background: rgb(150, 0, 0);
+        }
+    }
+}
