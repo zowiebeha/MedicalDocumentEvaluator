@@ -693,6 +693,47 @@ export default function HealthCheck() {
             
             analysisResult = JSON.parse(jsonText);
             console.log('Parsed analysis result:', analysisResult);
+            const allowedDomains = [
+              "pubmed.ncbi.nlm.nih.gov",
+              "cochranelibrary.com",
+              "embase.com",
+              "scopus.com"
+            ];
+          
+            const isWhitelisted = (link) => {
+              if (!link) return false;
+              return allowedDomains.some(domain => link.includes(domain));
+            };
+          
+            const demoteSources = (sources) => {
+              if (!Array.isArray(sources)) return { keep: [], demote: [] };
+              const keep = [];
+              const demote = [];
+              for (const src of sources) {
+                if (isWhitelisted(src.link)) {
+                  keep.push(src); // stays in Level 1 or 2
+                } else {
+                  demote.push(src); // demoted to Level 3
+                }
+              }
+              return { keep, demote };
+            };
+          
+            if (analysisResult?.pyramid_classification) {
+              const pc = analysisResult.pyramid_classification;
+          
+              // Handle Level 1
+              const { keep: level1Keep, demote: level1Demote } = demoteSources(pc.level_1);
+              pc.level_1 = level1Keep;
+              pc.level_3 = [...(pc.level_3 || []), ...level1Demote];
+          
+              // Handle Level 2
+              const { keep: level2Keep, demote: level2Demote } = demoteSources(pc.level_2);
+              pc.level_2 = level2Keep;
+              pc.level_3 = [...(pc.level_3 || []), ...level2Demote];
+          
+              console.log("Whitelist filter + demotion applied. Updated classification:", pc);
+            }
             break; // Success, exit the loop
           } catch (parseError) {
             console.error('JSON Parse Error:', parseError);
