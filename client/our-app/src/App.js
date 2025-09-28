@@ -813,38 +813,26 @@ export default function HealthCheck() {
 
   const testApiConnection = async () => {
     try {
-      console.log('Testing API connection with Google GenAI SDK...');
+      console.log('Testing API connection with Cloudflare Worker...');
       
-      // Try different model names in order of preference
-      const modelNames = [
-        'gemini-2.5-flash',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-        'gemini-1.0-pro'
-      ];
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: "Test connection",
+          mlaCitations: false
+        })
+      });
       
-      for (const modelName of modelNames) {
-        try {
-          console.log(`Testing model: ${modelName}`);
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: "Test connection",
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 10,
-            }
-          });
-          
-          console.log(`API connection successful with model: ${modelName}`);
-          return { success: true, model: modelName };
-        } catch (error) {
-          console.error(`API connection test failed for ${modelName}:`, error);
-          continue;
-        }
+      if (response.ok) {
+        console.log('API connection successful');
+        return { success: true, model: 'Cloudflare Worker' };
+      } else {
+        console.error('API connection test failed:', response.status);
+        return { success: false };
       }
-      
-      console.error('All API connection tests failed');
-      return { success: false };
     } catch (error) {
       console.error('API connection test failed:', error);
       return { success: false };
@@ -867,223 +855,26 @@ export default function HealthCheck() {
     setIsAnalyzing(true);
     setResult(null); // Clear previous results
 
-    const analysisPrompt = `
-      You are an AI assistant specialized in evaluating the credibility of healthcare information.
-      Analyze the following text, URL, or question provided by the user: "${prompt}".
-
-      Classify the evidence level of this content according to the Evidence-Based Medicine pyramid:
-      1. Systematic Reviews & Meta-analyses (highest quality)
-      2. Randomized Controlled Trials
-      3. Non-randomized Control Trials
-      4. Observational Studies with Comparison Groups
-      5. Case Series & Reports
-      6. Expert Opinion (lowest quality)
-
-      Provide a response in JSON format with the following structure:
-      {
-        "evidence_level": [number 1-6 indicating which pyramid level this content represents],
-        "source_analysis": "[100 characters max. analyzing source reputation, conflicts of interest, and generating relevant sources if none provided]",
-        "evidence_review": "[100 characters max. reviewing claims against scientific evidence hierarchy]",
-        "bias_detection": "[100 characters max. analyzing for biased language and misleading techniques]",
-        "recommendations": "[100 characters max. of actionable advice for the user]",
-        "citations": "${mlaCitations ? '[MLA citation if applicable, or note that citation cannot be generated]' : '[Citation generation disabled - toggle MLA Citations to enable]'}",
-        "pyramid_classification": {
-          "level_1": [array of systematic reviews found, empty if none],
-          "level_2": [array of RCTs found, empty if none],
-          "level_3": [array of non-RCTs found, empty if none],
-          "level_4": [array of observational studies found, empty if none],
-          "level_5": [array of case reports found, empty if none],
-          "level_6": [array of expert opinions found, empty if none]
-        }
-      }
-
-      For each pyramid level array, include objects with: {
-        "title": "[title of study]",
-        "summary": "[100 characters max. plain-language summary]",
-        "link": "[URL to study - use exact URL format, do not add www. prefix if already present]",
-        "citation": "${mlaCitations ? '[MLA formatted citation]' : 'Citation not available - MLA toggle disabled'}",
-        "trustworthiness": "very high | high | medium | low | very low",
-        "level_of_support": "supports | contradicts | inconclusive"
-      }
-
-      TRUSTWORTHINESS CRITERIA (CRITICAL):
-      - "very high" and "high" trustworthiness levels are ONLY for sources from:
-        * PubMed (pubmed.ncbi.nlm.nih.gov)
-        * The Cochrane Library (cochranelibrary.com)
-        * Embase (embase.com)
-        * Scopus (scopus.com)
-      - Government websites (.gov domains) should be rated as "medium" trustworthiness
-      - All other sources (news sites, blogs, commercial sites, etc.) should be rated as "medium", "low", or "very low"
-      
-      PYRAMID LEVEL ASSIGNMENT RULES:
-      - Level 1 (Systematic Reviews): ONLY for sources from PubMed, Cochrane, Embase, or Scopus
-      - Level 2 (Randomized Controlled Trials): ONLY for sources from PubMed, Cochrane, Embase, or Scopus
-      - Level 3-6: Government websites (.gov domains) and ALL other sources should be placed here
-      - Do NOT place hospital websites, medical center websites, news sites, or any non-academic sources in Level 1 or Level 2
-      - Mount Sinai, Mayo Clinic, Cleveland Clinic, and similar medical institutions are NOT academic databases and should be in Level 3-6
-      - Example: mountsinai.org articles should be in Level 3-6, NOT Level 1 or 2
-
-      PARAGRAPH LIMIT ENFORCEMENT:
-      - Each paragraph should be 2-4 sentences maximum
-      - If you reach 2 paragraphs, STOP WRITING immediately
-      - Do not continue with additional sentences or paragraphs
-      - This is a hard limit that cannot be exceeded
-      
-      CONTENT INSTRUCTIONS:
-      - For source_analysis: If the input is a claim without sources, generate relevant scientific sources and studies that address this claim. Don't just note the absence of sources - provide helpful context.
-      - For evidence_review: Focus on what scientific evidence exists for or against the claim, even if the original input lacks citations
-      - For bias_detection: Look for emotional language, absolute claims, and potential conflicts of interest
-      - For recommendations: Provide practical, actionable advice in 1-2 concise paragraphs
-      - For URLs: Use exact URL format as provided. Do NOT add "www." prefix to URLs that already have it. If a URL already starts with "www.", use it as-is.
-      - For trustworthiness: ONLY rate sources as "very high" or "high" if they are from PubMed, Cochrane, Embase, or Scopus. Government websites should be "medium". All other sources must be "medium", "low", or "very low".
-      - For pyramid levels: ONLY place PubMed, Cochrane, Embase, and Scopus sources in Level 1 (Systematic Reviews) and Level 2 (Randomized Controlled Trials). Place ALL other sources (including hospital websites like Mount Sinai, Mayo Clinic, government websites, news sites, etc.) in Level 3-6.
-      
-      ${mlaCitations ? 'Generate proper MLA citations for all studies and articles found. Use standard MLA format with author names, titles, publication information, and dates.' : 'Do not generate MLA citations as the toggle is disabled. Use generic descriptions instead.'}
-
-      FINAL REMINDER - CRITICAL:
-      - source_analysis: MAXIMUM 2 PARAGRAPHS - STOP after 2 paragraphs
-      - evidence_review: MAXIMUM 2 PARAGRAPHS - STOP after 2 paragraphs  
-      - bias_detection: MAXIMUM 2 PARAGRAPHS - STOP after 2 paragraphs
-      - recommendations: MAXIMUM 2 PARAGRAPHS - STOP after 2 paragraphs
-      - Each paragraph: 2-4 sentences maximum
-      - NO EXCEPTIONS TO THESE LIMITS
-
-      Respond only with valid JSON, no additional text, no markdown formatting, no code blocks.
-    `;
-
     try {
-      console.log('Making API request to Gemini using SDK...');
+      console.log('Making API request to Cloudflare Worker...');
       
-      // Try different model names in order of preference
-      const modelNames = [
-        'gemini-2.5-flash',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-        'gemini-1.0-pro'
-      ];
-      
-      let analysisResult;
-      let lastError;
-      
-      for (const modelName of modelNames) {
-        try {
-          console.log(`Trying model: ${modelName}`);
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: analysisPrompt,
-            generationConfig: {
-              temperature: 0.3,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 2048,
-            }
-          });
-          
-          console.log(`API Response successful with model: ${modelName}`);
-          console.log('Response:', response);
-          
-          // Extract the text from the response
-          const generatedText = response.text;
-          
-          if (!generatedText) {
-            console.error('No generated text found in response:', response);
-            throw new Error('No content generated by Gemini.');
-          }
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          mlaCitations: mlaCitations
+        })
+      });
 
-          console.log('Generated text:', generatedText);
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
 
-          // Parse the JSON from the generated text
-          try {
-            // Clean the generated text to extract JSON from markdown code blocks
-            let jsonText = generatedText.trim();
-            
-            // Remove markdown code block formatting if present
-            if (jsonText.startsWith('```json')) {
-              jsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-            } else if (jsonText.startsWith('```')) {
-              jsonText = jsonText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-            }
-            
-            // Try to find JSON object boundaries if there's extra text
-            const jsonStart = jsonText.indexOf('{');
-            const jsonEnd = jsonText.lastIndexOf('}');
-            
-            if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-              jsonText = jsonText.substring(jsonStart, jsonEnd + 1);
-            }
-            
-            // Remove any leading/trailing whitespace
-            jsonText = jsonText.trim();
-            
-            console.log('Cleaned JSON text:', jsonText);
-            
-            analysisResult = JSON.parse(jsonText);
-            console.log('Parsed analysis result:', analysisResult);
-            const allowedDomains = [
-              "pubmed.ncbi.nlm.nih.gov",
-              "cochranelibrary.com",
-              "embase.com",
-              "scopus.com"
-            ];
-          
-            const isWhitelisted = (link) => {
-              if (!link) return false;
-              return allowedDomains.some(domain => link.includes(domain));
-            };
-          
-            const demoteSources = (sources) => {
-              if (!Array.isArray(sources)) return { keep: [], demote: [] };
-              const keep = [];
-              const demote = [];
-              for (const src of sources) {
-                if (isWhitelisted(src.link)) {
-                  keep.push(src); // stays in Level 1 or 2
-                } else {
-                  demote.push(src); // demoted to Level 3
-                }
-              }
-              return { keep, demote };
-            };
-          
-            if (analysisResult?.pyramid_classification) {
-              const pc = analysisResult.pyramid_classification;
-          
-              // Handle Level 1
-              const { keep: level1Keep, demote: level1Demote } = demoteSources(pc.level_1);
-              pc.level_1 = level1Keep;
-              pc.level_3 = [...(pc.level_3 || []), ...level1Demote];
-          
-              // Handle Level 2
-              const { keep: level2Keep, demote: level2Demote } = demoteSources(pc.level_2);
-              pc.level_2 = level2Keep;
-              pc.level_3 = [...(pc.level_3 || []), ...level2Demote];
-          
-              console.log("Whitelist filter + demotion applied. Updated classification:", pc);
-            }
-            break; // Success, exit the loop
-          } catch (parseError) {
-            console.error('JSON Parse Error:', parseError);
-            console.error('Raw text that failed to parse:', generatedText);
-            lastError = new Error(`Failed to parse JSON response from Gemini: ${parseError.message}`);
-            continue; // Try next model
-          }
-          
-        } catch (modelError) {
-          console.error(`Error with model ${modelName}:`, modelError);
-          lastError = modelError;
-          continue; // Try next model
-        }
-      }
-      
-      if (!analysisResult) {
-        throw lastError || new Error('All model attempts failed');
-      }
-      
-      // Validate that we have the required fields
-      if (!analysisResult.overall_score && analysisResult.overall_score !== 0) {
-        console.warn('Missing overall_score in response, using fallback');
-        analysisResult.overall_score = 5;
-      }
+      const analysisResult = await response.json();
+      console.log('Analysis result:', analysisResult);
       
       setResult(analysisResult);
       
@@ -1091,13 +882,13 @@ export default function HealthCheck() {
       addToHistory(prompt, analysisResult);
 
     } catch (error) {
-      console.error("Gemini API analysis failed:", error);
+      console.error("API analysis failed:", error);
       
       // Determine specific error message based on error type
       let errorMessage = "Unable to analyze source due to technical difficulties.";
       
       if (error.message.includes('API request failed: 400')) {
-        errorMessage = "Invalid API request. Please check the API key configuration.";
+        errorMessage = "Invalid API request. Please check the configuration.";
       } else if (error.message.includes('API request failed: 401')) {
         errorMessage = "API key is invalid or expired. Please update the API key.";
       } else if (error.message.includes('API request failed: 403')) {
