@@ -146,28 +146,20 @@ const ExternalLinkIcon = ({ size = 24, color = "currentColor" }) => (
 
 // Evidence Pyramid Component
 const EvidencePyramid = ({ onLevelClick, analysisResult }) => {
-  const getLevelColor = (level, score, hasEvidence) => {
-    if (!score) return { backgroundColor: '#374151', borderColor: '#4B5563' };
-    
+  const getLevelColor = (level, hasEvidence) => {
     // If no evidence for this level, make it grayed out
     if (!hasEvidence) {
       return { backgroundColor: '#1F2937', borderColor: '#374151' };
     }
     
-    // Higher levels (1-2) should be highlighted for high scores (8-10)
-    // Lower levels (5-6) should be highlighted for low scores (1-4)
+    // Higher levels (1-2) are always highlighted when they have evidence
     const isHighQuality = level <= 2;
-    const isLowQuality = level >= 5;
-    const isHighScore = score >= 8;
-    const isLowScore = score <= 4;
     
-    if ((isHighQuality && isHighScore) || (isLowQuality && isLowScore)) {
-      return { backgroundColor: '#059669', borderColor: '#10B981' }; // Green for good match
-    } else if ((isHighQuality && isLowScore) || (isLowQuality && isHighScore)) {
-      return { backgroundColor: '#DC2626', borderColor: '#EF4444' }; // Red for mismatch
+    if (isHighQuality) {
+      return { backgroundColor: '#059669', borderColor: '#10B981' }; // Green for high quality evidence
     }
     
-    return { backgroundColor: '#374151', borderColor: '#4B5563' }; // Default
+    return { backgroundColor: '#374151', borderColor: '#4B5563' }; // Default for other levels
   };
 
   const getEvidenceCount = (level) => {
@@ -185,7 +177,7 @@ const EvidencePyramid = ({ onLevelClick, analysisResult }) => {
       {pyramidLevels.map((level, index) => {
         const hasEvidence = isLevelClickable(level.level);
         const evidenceCount = getEvidenceCount(level.level);
-        const colors = getLevelColor(level.level, analysisResult?.overall_score, hasEvidence);
+        const colors = getLevelColor(level.level, hasEvidence);
         
         return (
           <div
@@ -249,9 +241,9 @@ const EvidencePyramid = ({ onLevelClick, analysisResult }) => {
           <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '8px', opacity: 0.6 }}>
             Analysis Unavailable - API Error
           </div>
-        ) : analysisResult?.overall_score ? (
+        ) : analysisResult?.evidence_level ? (
           <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '8px' }}>
-            Score: {analysisResult.overall_score}/10 | Level: {analysisResult.evidence_level || 'Unknown'}
+            Evidence Level: {analysisResult.evidence_level}
           </div>
         ) : null}
       </div>
@@ -267,6 +259,31 @@ const InfoModal = ({ level, isOpen, onClose, mlaCitations }) => {
     conclusive: { backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ADE80', borderColor: 'rgba(34, 197, 94, 0.3)' },
     supports: { backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#60A5FA', borderColor: 'rgba(59, 130, 246, 0.3)' },
     contradicts: { backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#F87171', borderColor: 'rgba(239, 68, 68, 0.3)' },
+    inconclusive: { backgroundColor: 'rgba(156, 163, 175, 0.2)', color: '#9CA3AF', borderColor: 'rgba(156, 163, 175, 0.3)' },
+  };
+
+  const trustworthinessColors = {
+    'very high': { backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ADE80', borderColor: 'rgba(34, 197, 94, 0.3)' },
+    'high': { backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#6EE7B7', borderColor: 'rgba(34, 197, 94, 0.25)' },
+    'medium': { backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#FBBF24', borderColor: 'rgba(245, 158, 11, 0.3)' },
+    'low': { backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#F87171', borderColor: 'rgba(239, 68, 68, 0.25)' },
+    'very low': { backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#F87171', borderColor: 'rgba(239, 68, 68, 0.3)' },
+  };
+
+  // Function to clean URLs and prevent www. duplication
+  const cleanUrl = (url) => {
+    if (!url || typeof url !== 'string') return url;
+    
+    // Remove any existing www. prefix
+    let cleaned = url.replace(/^https?:\/\/www\./, 'https://');
+    cleaned = cleaned.replace(/^www\./, 'https://');
+    
+    // Ensure it has a protocol
+    if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+      cleaned = 'https://' + cleaned;
+    }
+    
+    return cleaned;
   };
 
   return (
@@ -342,7 +359,7 @@ const InfoModal = ({ level, isOpen, onClose, mlaCitations }) => {
                 marginBottom: '24px'
               }}>
                 <a
-                  href={item.url}
+                  href={cleanUrl(item.link || item.url) || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -365,19 +382,44 @@ const InfoModal = ({ level, isOpen, onClose, mlaCitations }) => {
                   <span>{index + 1}. {item.title}</span>
                   <ExternalLinkIcon size={16} />
                 </a>
+
+                {item.summary && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ color: '#9CA3AF', fontWeight: '600', marginBottom: '4px' }}>Summary:</div>
+                    <div style={{ color: '#D1D5DB', fontSize: '14px', lineHeight: '1.4' }}>
+                      {item.summary}
+                    </div>
+                  </div>
+                )}
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', marginBottom: '12px', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: '600', color: 'white' }}>Support claim:</span>
                   <span style={{
-                    ...supportColors[item.support],
-                    border: `1px solid ${supportColors[item.support].borderColor}`,
+                    ...supportColors[item.level_of_support || item.support],
+                    border: `1px solid ${supportColors[item.level_of_support || item.support]?.borderColor || 'rgba(156, 163, 175, 0.3)'}`,
                     padding: '4px 8px',
                     borderRadius: '4px',
                     fontSize: '12px',
                     fontWeight: '500'
                   }}>
-                    {item.support}
+                    {item.level_of_support || item.support}
                   </span>
+                  
+                  {item.trustworthiness && (
+                    <>
+                      <span style={{ fontWeight: '600', color: 'white' }}>Trustworthiness:</span>
+                      <span style={{
+                        ...trustworthinessColors[item.trustworthiness],
+                        border: `1px solid ${trustworthinessColors[item.trustworthiness]?.borderColor || 'rgba(156, 163, 175, 0.3)'}`,
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: '500'
+                      }}>
+                        {item.trustworthiness}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 {mlaCitations && item.citation && (
@@ -413,6 +455,7 @@ export default function HealthCheck() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null); // Show sample result by default -> Changed to null
   const [selectedPyramidLevel, setSelectedPyramidLevel] = useState(null);
+  const [validationError, setValidationError] = useState(null);
 
   useEffect(() => {
     // Programmatically set the favicon
@@ -428,42 +471,17 @@ export default function HealthCheck() {
   }, []); // Empty dependency array ensures this runs only once
 
   const validateInput = (input) => {
-    const trimmed = input.trim().toLowerCase();
+    const trimmed = input.trim();
     
-    // Check if input is too short or seems like gibberish
+    if (!trimmed) {
+      return { valid: false, message: "Please provide some input to analyze." };
+    }
+    
     if (trimmed.length < 10) {
       return { valid: false, message: "Please provide a longer, more detailed input (at least 10 characters)." };
     }
     
-    // Check for common non-article patterns
-    const invalidPatterns = [
-      /^[0-9\s\-_.,!?]+$/, // Only numbers and punctuation
-      /^(hello|hi|hey|test|testing|asdf|qwerty|123|abc)/, // Common test inputs
-      /^[a-z\s]{1,5}$/, // Very short alphabetic strings
-      /^(lol|lmao|haha|wtf|omg|wow)$/, // Common chat expressions
-      /^[^a-zA-Z0-9]*$/, // No alphanumeric characters
-    ];
-    
-    for (const pattern of invalidPatterns) {
-      if (pattern.test(trimmed)) {
-        return { valid: false, message: "Please provide a healthcare article, claim, or research question to analyze." };
-      }
-    }
-    
-    // Check if it looks like a legitimate healthcare/medical input
-    const healthcareKeywords = [
-      'health', 'medical', 'medicine', 'disease', 'treatment', 'drug', 'medicine', 'symptom',
-      'diagnosis', 'therapy', 'clinical', 'study', 'research', 'patient', 'doctor', 'hospital',
-      'cancer', 'diabetes', 'heart', 'blood', 'brain', 'covid', 'vaccine', 'virus', 'infection'
-    ];
-    
-    const hasHealthcareContent = healthcareKeywords.some(keyword => trimmed.includes(keyword));
-    
-    if (!hasHealthcareContent && trimmed.length < 50) {
-      return { valid: false, message: "Please provide healthcare-related content, articles, or medical claims to analyze." };
-    }
-    
-    return { valid: true };
+    return { valid: true, message: "" };
   };
 
 
@@ -510,10 +528,13 @@ export default function HealthCheck() {
   const handleSubmit = async () => {
     if (!prompt.trim()) return;
     
+    // Clear previous validation errors
+    setValidationError(null);
+    
     // Validate input
     const validation = validateInput(prompt);
     if (!validation.valid) {
-      alert(validation.message);
+      setValidationError(validation.message);
       return;
     }
     
@@ -534,12 +555,11 @@ export default function HealthCheck() {
 
       Provide a response in JSON format with the following structure:
       {
-        "overall_score": [number from 1-10],
         "evidence_level": [number 1-6 indicating which pyramid level this content represents],
-        "source_analysis": "[paragraph analyzing source reputation and conflicts of interest]",
-        "evidence_review": "[paragraph reviewing claims against scientific evidence hierarchy]",
-        "bias_detection": "[paragraph analyzing for biased language and misleading techniques]",
-        "recommendations": "[actionable advice for the user]",
+        "source_analysis": "[100 characters max. analyzing source reputation, conflicts of interest, and generating relevant sources if none provided]",
+        "evidence_review": "[100 characters max. reviewing claims against scientific evidence hierarchy]",
+        "bias_detection": "[100 characters max. analyzing for biased language and misleading techniques]",
+        "recommendations": "[100 characters max. of actionable advice for the user]",
         "citations": "${mlaCitations ? '[MLA citation if applicable, or note that citation cannot be generated]' : '[Citation generation disabled - toggle MLA Citations to enable]'}",
         "pyramid_classification": {
           "level_1": [array of systematic reviews found, empty if none],
@@ -551,9 +571,56 @@ export default function HealthCheck() {
         }
       }
 
-      For each pyramid level array, include objects with: {"title": "Study/Article Title", "support": "supports/contradicts/conclusive", "citation": "${mlaCitations ? 'MLA citation' : 'Citation not available - MLA toggle disabled'}"}
+      For each pyramid level array, include objects with: {
+        "title": "[title of study]",
+        "summary": "[100 characters max. plain-language summary]",
+        "link": "[URL to study - use exact URL format, do not add www. prefix if already present]",
+        "citation": "${mlaCitations ? '[MLA formatted citation]' : 'Citation not available - MLA toggle disabled'}",
+        "trustworthiness": "very high | high | medium | low | very low",
+        "level_of_support": "supports | contradicts | inconclusive"
+      }
 
-      ${mlaCitations ? 'IMPORTANT: Generate proper MLA citations for all studies and articles found. Use standard MLA format with author names, titles, publication information, and dates.' : 'IMPORTANT: Do not generate MLA citations as the toggle is disabled. Use generic descriptions instead.'}
+      TRUSTWORTHINESS CRITERIA (CRITICAL):
+      - "very high" and "high" trustworthiness levels are ONLY for sources from:
+        * PubMed (pubmed.ncbi.nlm.nih.gov)
+        * The Cochrane Library (cochranelibrary.com)
+        * Embase (embase.com)
+        * Scopus (scopus.com)
+      - Government websites (.gov domains) should be rated as "medium" trustworthiness
+      - All other sources (news sites, blogs, commercial sites, etc.) should be rated as "medium", "low", or "very low"
+      
+      PYRAMID LEVEL ASSIGNMENT RULES:
+      - Level 1 (Systematic Reviews): ONLY for sources from PubMed, Cochrane, Embase, or Scopus
+      - Level 2 (Randomized Controlled Trials): ONLY for sources from PubMed, Cochrane, Embase, or Scopus
+      - Level 3-6: Government websites (.gov domains) and ALL other sources should be placed here
+      - Do NOT place hospital websites, medical center websites, news sites, or any non-academic sources in Level 1 or Level 2
+      - Mount Sinai, Mayo Clinic, Cleveland Clinic, and similar medical institutions are NOT academic databases and should be in Level 3-6
+      - Example: mountsinai.org articles should be in Level 3-6, NOT Level 1 or 2
+
+      PARAGRAPH LIMIT ENFORCEMENT:
+      - Each paragraph should be 2-4 sentences maximum
+      - If you reach 2 paragraphs, STOP WRITING immediately
+      - Do not continue with additional sentences or paragraphs
+      - This is a hard limit that cannot be exceeded
+      
+      CONTENT INSTRUCTIONS:
+      - For source_analysis: If the input is a claim without sources, generate relevant scientific sources and studies that address this claim. Don't just note the absence of sources - provide helpful context.
+      - For evidence_review: Focus on what scientific evidence exists for or against the claim, even if the original input lacks citations
+      - For bias_detection: Look for emotional language, absolute claims, and potential conflicts of interest
+      - For recommendations: Provide practical, actionable advice in 1-2 concise paragraphs
+      - For URLs: Use exact URL format as provided. Do NOT add "www." prefix to URLs that already have it. If a URL already starts with "www.", use it as-is.
+      - For trustworthiness: ONLY rate sources as "very high" or "high" if they are from PubMed, Cochrane, Embase, or Scopus. Government websites should be "medium". All other sources must be "medium", "low", or "very low".
+      - For pyramid levels: ONLY place PubMed, Cochrane, Embase, and Scopus sources in Level 1 (Systematic Reviews) and Level 2 (Randomized Controlled Trials). Place ALL other sources (including hospital websites like Mount Sinai, Mayo Clinic, government websites, news sites, etc.) in Level 3-6.
+      
+      ${mlaCitations ? 'Generate proper MLA citations for all studies and articles found. Use standard MLA format with author names, titles, publication information, and dates.' : 'Do not generate MLA citations as the toggle is disabled. Use generic descriptions instead.'}
+
+      FINAL REMINDER - CRITICAL:
+      - source_analysis: MAXIMUM 2 PARAGRAPHS - STOP after 2 paragraphs
+      - evidence_review: MAXIMUM 2 PARAGRAPHS - STOP after 2 paragraphs  
+      - bias_detection: MAXIMUM 2 PARAGRAPHS - STOP after 2 paragraphs
+      - recommendations: MAXIMUM 2 PARAGRAPHS - STOP after 2 paragraphs
+      - Each paragraph: 2-4 sentences maximum
+      - NO EXCEPTIONS TO THESE LIMITS
 
       Respond only with valid JSON, no additional text, no markdown formatting, no code blocks.
     `;
@@ -853,7 +920,6 @@ export default function HealthCheck() {
               margin: '0 auto',
               lineHeight: '1.6'
             }}>
-              Our AI is evaluating the credibility, evidence quality, and potential bias in your input. 
               This may take a few moments...
             </p>
           </div>
@@ -900,49 +966,6 @@ export default function HealthCheck() {
             }}>
               {/* Left Side: Text Results */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div style={{
-                  backgroundColor: 'rgba(31, 41, 55, 0.5)',
-                  borderRadius: '16px',
-                  padding: '24px',
-                  border: '1px solid #374151'
-                }}>
-                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                    <div style={{ 
-                      fontSize: '48px', 
-                      fontWeight: 'bold', 
-                      color: result?.api_error ? '#6B7280' : 
-                             result?.overall_score >= 8 ? '#10B981' : 
-                             result?.overall_score >= 6 ? '#F59E0B' : 
-                             result?.overall_score >= 4 ? '#EF4444' : '#6B7280',
-                      marginBottom: '8px',
-                      opacity: result?.api_error ? 0.6 : 1
-                    }}>
-                      {result?.api_error ? '?/10' : `${result?.overall_score || 0}/10`}
-                    </div>
-                    <div style={{ 
-                      color: result?.api_error ? '#6B7280' : '#9CA3AF', 
-                      fontSize: '18px', 
-                      marginBottom: '8px',
-                      opacity: result?.api_error ? 0.6 : 1
-                    }}>
-                      Credibility Score
-                    </div>
-                    <div style={{ 
-                      color: result?.api_error ? '#6B7280' : 
-                             result?.overall_score >= 8 ? '#10B981' : 
-                             result?.overall_score >= 6 ? '#F59E0B' : 
-                             result?.overall_score >= 4 ? '#EF4444' : '#6B7280',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      opacity: result?.api_error ? 0.6 : 1
-                    }}>
-                      {result?.api_error ? 'Analysis Unavailable' : 
-                       result?.overall_score >= 8 ? 'Highly Credible' : 
-                       result?.overall_score >= 6 ? 'Moderately Credible' : 
-                       result?.overall_score >= 4 ? 'Low Credibility' : 'Very Low Credibility'}
-                    </div>
-                  </div>
-                </div>
 
                 {[
                   { title: 'Source Analysis', content: result?.source_analysis || 'No analysis available', icon: ShieldIcon },
@@ -1038,10 +1061,28 @@ export default function HealthCheck() {
             padding: window.innerWidth < 768 ? '16px' : '32px',
             border: '1px solid #374151'
           }}>
+            {validationError && (
+              <div style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '16px',
+                color: '#F87171'
+              }}>
+                <div style={{ fontWeight: '600', marginBottom: '8px' }}>Invalid Input</div>
+                <div>{validationError}</div>
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <textarea
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+                onChange={(e) => {
+                  setPrompt(e.target.value);
+                  if (validationError) {
+                    setValidationError(null); // Clear validation error when user types
+                  }
+                }}
                 placeholder="Paste an article URL, text excerpt, or ask about healthcare information credibility..."
                 style={{
                   minHeight: window.innerWidth < 768 ? '120px' : '128px',
@@ -1079,8 +1120,8 @@ export default function HealthCheck() {
                   gap: '12px',
                   width: window.innerWidth < 768 ? '100%' : 'auto'
                 }}>
-                  <label htmlFor="mla-toggle" style={{ color: mlaCitations ? '#60A5FA' : '#9CA3AF', fontSize: '14px', fontWeight: mlaCitations ? '600' : '400' }}>
-                    MLA Citations {mlaCitations ? '(Enabled)' : '(Disabled)'}
+                  <label htmlFor="mla-toggle" style={{ color: '#9CA3AF', fontSize: '14px', fontWeight: '400' }}>
+                    MLA Citations
                   </label>
                   <div
                     id="mla-toggle"
