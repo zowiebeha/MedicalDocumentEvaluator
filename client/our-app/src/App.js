@@ -136,6 +136,31 @@ const XIcon = ({ size = 24, color = "currentColor" }) => (
   </svg>
 );
 
+const MenuIcon = ({ size = 24, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="6" x2="21" y2="6"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>
+);
+
+const HistoryIcon = ({ size = 24, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+    <path d="M3 3v5h5"/>
+    <path d="M12 7v5l4 2"/>
+  </svg>
+);
+
+const TrashIcon = ({ size = 24, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3,6 5,6 21,6"/>
+    <path d="M19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
+    <line x1="10" y1="11" x2="10" y2="17"/>
+    <line x1="14" y1="11" x2="14" y2="17"/>
+  </svg>
+);
+
 const ExternalLinkIcon = ({ size = 24, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -448,6 +473,279 @@ const InfoModal = ({ level, isOpen, onClose, mlaCitations }) => {
   );
 };
 
+// Sidebar Component
+const Sidebar = ({ isOpen, onClose, activeTab, onTabChange, analysisHistory, onRestoreAnalysis, onDeleteAnalysis }) => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const formatDate = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    if (diffInHours < 1) {
+      return 'Just now';
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)}h ago`;
+    } else if (diffInHours < 168) { // 7 days
+      return `${Math.floor(diffInHours / 24)}d ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  const truncateText = (text, maxLength = 100) => {
+    if (!text) return 'No content';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  };
+
+  return (
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && isMobile && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 40
+          }}
+          onClick={onClose}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          height: '100vh',
+          width: isMobile ? '280px' : '320px',
+          backgroundColor: '#1F2937',
+          borderRight: '1px solid #374151',
+          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.3s ease',
+          zIndex: 50,
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        {/* Sidebar Header */}
+        <div style={{
+          padding: '24px',
+          borderBottom: '1px solid #374151',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <h2 style={{ fontSize: '20px', fontWeight: '600', color: 'white', margin: 0 }}>
+            HealthCheck AI
+          </h2>
+          <button
+            onClick={onClose}
+            style={{
+              backgroundColor: 'transparent',
+              border: 'none',
+              color: '#9CA3AF',
+              cursor: 'pointer',
+              padding: '4px',
+              borderRadius: '4px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#374151';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <XIcon size={20} />
+          </button>
+        </div>
+
+        {/* Tab Navigation */}
+        <div style={{
+          display: 'flex',
+          borderBottom: '1px solid #374151'
+        }}>
+          <button
+            onClick={() => onTabChange('analysis')}
+            style={{
+              flex: 1,
+              padding: '16px',
+              backgroundColor: activeTab === 'analysis' ? '#374151' : 'transparent',
+              border: 'none',
+              color: activeTab === 'analysis' ? 'white' : '#9CA3AF',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            <FileTextIcon size={16} />
+            Analysis
+          </button>
+          <button
+            onClick={() => onTabChange('history')}
+            style={{
+              flex: 1,
+              padding: '16px',
+              backgroundColor: activeTab === 'history' ? '#374151' : 'transparent',
+              border: 'none',
+              color: activeTab === 'history' ? 'white' : '#9CA3AF',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            <HistoryIcon size={16} />
+            History ({analysisHistory.length})
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          {activeTab === 'history' ? (
+            <div style={{ padding: '16px' }}>
+              {analysisHistory.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  color: '#6B7280',
+                  padding: '32px 16px'
+                }}>
+                  <HistoryIcon size={48} color="#6B7280" />
+                  <p style={{ marginTop: '16px', fontSize: '14px' }}>
+                    No analysis history yet
+                  </p>
+                  <p style={{ marginTop: '8px', fontSize: '12px' }}>
+                    Your past analyses will appear here
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {analysisHistory.map((analysis, index) => (
+                    <div
+                      key={analysis.id}
+                      style={{
+                        backgroundColor: '#374151',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        border: '1px solid #4B5563'
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '8px'
+                      }}>
+                        <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                          {formatDate(analysis.timestamp)}
+                        </div>
+                        <button
+                          onClick={() => onDeleteAnalysis(analysis.id)}
+                          style={{
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            color: '#6B7280',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            borderRadius: '4px'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#374151';
+                            e.currentTarget.style.color = '#EF4444';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = '#6B7280';
+                          }}
+                        >
+                          <TrashIcon size={14} />
+                        </button>
+                      </div>
+                      
+                      <div style={{
+                        fontSize: '14px',
+                        color: '#D1D5DB',
+                        marginBottom: '12px',
+                        lineHeight: '1.4'
+                      }}>
+                        {truncateText(analysis.prompt)}
+                      </div>
+                      
+                      {analysis.result?.evidence_level && (
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#60A5FA',
+                          marginBottom: '8px'
+                        }}>
+                          Evidence Level: {analysis.result.evidence_level}
+                        </div>
+                      )}
+                      
+                      <button
+                        onClick={() => onRestoreAnalysis(analysis)}
+                        style={{
+                          width: '100%',
+                          backgroundColor: '#2563EB',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#1D4ED8';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#2563EB';
+                        }}
+                      >
+                        View Analysis
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ padding: '16px', color: '#9CA3AF', textAlign: 'center' }}>
+              <FileTextIcon size={48} color="#6B7280" />
+              <p style={{ marginTop: '16px', fontSize: '14px' }}>
+                Analysis tools
+              </p>
+              <p style={{ marginTop: '8px', fontSize: '12px' }}>
+                Use the main interface to analyze healthcare information
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
 // Main App Component
 export default function HealthCheck() {
   const [prompt, setPrompt] = useState('');
@@ -456,6 +754,10 @@ export default function HealthCheck() {
   const [result, setResult] = useState(null); // Show sample result by default -> Changed to null
   const [selectedPyramidLevel, setSelectedPyramidLevel] = useState(null);
   const [validationError, setValidationError] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('analysis');
+  const [analysisHistory, setAnalysisHistory] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   useEffect(() => {
     // Programmatically set the favicon
@@ -464,11 +766,35 @@ export default function HealthCheck() {
     favicon.href = '/favicon.ico'; // Assumes favicon.ico is in the public root folder
     document.head.appendChild(favicon);
 
-    // Cleanup function to remove the favicon when the component unmounts
+    // Load analysis history from localStorage
+    const savedHistory = localStorage.getItem('healthcheck-analysis-history');
+    if (savedHistory) {
+      try {
+        setAnalysisHistory(JSON.parse(savedHistory));
+      } catch (error) {
+        console.error('Failed to parse saved analysis history:', error);
+        setAnalysisHistory([]);
+      }
+    }
+
+    // Handle window resize
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup function to remove the favicon and event listener when the component unmounts
     return () => {
       document.head.removeChild(favicon);
+      window.removeEventListener('resize', handleResize);
     };
   }, []); // Empty dependency array ensures this runs only once
+
+  // Save analysis history to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('healthcheck-analysis-history', JSON.stringify(analysisHistory));
+  }, [analysisHistory]);
 
   const validateInput = (input) => {
     const trimmed = input.trim();
@@ -760,6 +1086,9 @@ export default function HealthCheck() {
       }
       
       setResult(analysisResult);
+      
+      // Add to history
+      addToHistory(prompt, analysisResult);
 
     } catch (error) {
       console.error("Gemini API analysis failed:", error);
@@ -822,9 +1151,49 @@ export default function HealthCheck() {
     setPrompt('');
   };
 
+  const addToHistory = (prompt, result) => {
+    const newAnalysis = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      prompt: prompt,
+      result: result
+    };
+    
+    setAnalysisHistory(prev => [newAnalysis, ...prev].slice(0, 50)); // Keep only last 50 analyses
+  };
+
+  const restoreAnalysis = (analysis) => {
+    setResult(analysis.result);
+    setPrompt(analysis.prompt);
+    setSidebarOpen(false);
+  };
+
+  const deleteAnalysis = (analysisId) => {
+    setAnalysisHistory(prev => prev.filter(analysis => analysis.id !== analysisId));
+  };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#111827', color: 'white' }}>
       <InfoModal level={selectedPyramidLevel} isOpen={!!selectedPyramidLevel} onClose={closeModal} mlaCitations={mlaCitations} />
+      
+      {/* Sidebar */}
+      <Sidebar 
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        analysisHistory={analysisHistory}
+        onRestoreAnalysis={restoreAnalysis}
+        onDeleteAnalysis={deleteAnalysis}
+      />
       
       {/* Header */}
       <header style={{
@@ -833,6 +1202,30 @@ export default function HealthCheck() {
         backdropFilter: 'blur(8px)'
       }}>
         <div style={{ maxWidth: '1152px', margin: '0 auto', padding: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button
+            onClick={toggleSidebar}
+            style={{
+              backgroundColor: 'transparent',
+              border: '1px solid #374151',
+              color: '#9CA3AF',
+              padding: '8px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#374151';
+              e.currentTarget.style.color = 'white';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = '#9CA3AF';
+            }}
+          >
+            <MenuIcon size={20} />
+          </button>
           <div style={{
             width: '48px',
             height: '48px',
@@ -852,7 +1245,13 @@ export default function HealthCheck() {
       </header>
 
       {/* Main Content */}
-      <main style={{ maxWidth: '1152px', margin: '0 auto', padding: '48px 24px' }}>
+      <main style={{ 
+        maxWidth: '1152px', 
+        margin: '0 auto', 
+        padding: '48px 24px',
+        marginLeft: sidebarOpen && !isMobile ? '320px' : 'auto',
+        transition: 'margin-left 0.3s ease'
+      }}>
         {!result && !isAnalyzing ? (
           <>
             {/* Hero Section */}
