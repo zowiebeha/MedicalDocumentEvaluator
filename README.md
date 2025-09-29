@@ -18,3 +18,7 @@ Interactivity and UI integration made with Cursor
 
 ## Warning: 
 This is some vibe ✨ coded 💻🤖 spaghetti 🍝 slop 🐷.
+
+## Double Warning:
+
+This is the most insecure ahh sh** you will ever see
